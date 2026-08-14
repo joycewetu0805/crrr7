@@ -79,3 +79,22 @@ class TransactionHistorique(BaseModel):
     date_transaction: datetime
     probabilite: float
     niveau_risque: NiveauRisque
+
+
+class CompteResume(BaseModel):
+    """Ligne renvoyee par GET /api/comptes, pour peupler le formulaire du frontend."""
+
+    id: int
+    nom_titulaire: str
+    pays: str
+
+
+class Statistiques(BaseModel):
+    """Agregats renvoyes par GET /api/stats, pour les cartes du dashboard."""
+
+    total_transactions: int
+    transactions_analysees: int
+    transactions_suspectes: int
+    transactions_frauduleuses: int
+    taux_fraude: float
+    score_risque_moyen: float

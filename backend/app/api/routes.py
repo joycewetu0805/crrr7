@@ -13,10 +13,17 @@ import sqlite3
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.db.database import obtenir_connexion
-from app.models.schemas import ResultatAnalyse, TransactionEntrante, TransactionHistorique
+from app.models.schemas import (
+    CompteResume,
+    ResultatAnalyse,
+    Statistiques,
+    TransactionEntrante,
+    TransactionHistorique,
+)
 from app.services.transaction_service import (
     CompteInconnuError,
     analyser_et_enregistrer_transaction,
+    obtenir_statistiques,
 )
 
 router = APIRouter(prefix="/api", tags=["transactions"])
@@ -71,4 +78,23 @@ def lister_transactions(
     ).fetchall()
     # Conversion explicite sqlite3.Row -> dict : garantit que Pydantic
     # peut valider chaque ligne quelle que soit sa version.
+    return [dict(ligne) for ligne in lignes]
+
+
+@router.get("/stats", response_model=Statistiques)
+def obtenir_stats(
+    connexion: sqlite3.Connection = Depends(obtenir_connexion),
+) -> Statistiques:
+    """Agregats consommes par les cartes KPI et les graphiques du dashboard."""
+    return obtenir_statistiques(connexion)
+
+
+@router.get("/comptes", response_model=list[CompteResume])
+def lister_comptes(
+    connexion: sqlite3.Connection = Depends(obtenir_connexion),
+) -> list[dict]:
+    """Liste des comptes, pour le selecteur du formulaire 'nouvelle transaction'."""
+    lignes = connexion.execute(
+        "SELECT id, nom_titulaire, pays FROM comptes ORDER BY nom_titulaire"
+    ).fetchall()
     return [dict(ligne) for ligne in lignes]

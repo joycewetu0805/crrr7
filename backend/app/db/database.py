@@ -17,7 +17,12 @@ from app.core.config import DB_PATH, SCHEMA_PATH, SEED_PATH
 
 def obtenir_connexion_brute() -> sqlite3.Connection:
     """Ouvre une connexion SQLite avec les reglages utilises dans tout le projet."""
-    connexion = sqlite3.connect(DB_PATH)
+    # check_same_thread=False : FastAPI execute les dependances synchrones
+    # (comme celle-ci) dans un pool de threads, et peut ouvrir la connexion
+    # dans un thread puis la fermer dans un autre. La connexion n'est de
+    # toute facon jamais partagee entre deux requetes en meme temps (une
+    # connexion par requete, fermee a la fin), donc c'est sans danger ici.
+    connexion = sqlite3.connect(DB_PATH, check_same_thread=False)
     connexion.row_factory = sqlite3.Row  # acces aux colonnes par nom (row["montant"])
     connexion.execute("PRAGMA foreign_keys = ON")
     return connexion

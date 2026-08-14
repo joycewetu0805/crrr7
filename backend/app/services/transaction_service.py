@@ -16,7 +16,7 @@ import sqlite3
 from datetime import datetime
 
 from app.ml.predictor import predire_transaction
-from app.models.schemas import ResultatAnalyse, TransactionEntrante
+from app.models.schemas import ResultatAnalyse, Statistiques, TransactionEntrante
 
 # Format de date utilise partout dans la base (coherent avec
 # CURRENT_TIMESTAMP de SQLite : "YYYY-MM-DD HH:MM:SS").
@@ -156,4 +156,31 @@ def analyser_et_enregistrer_transaction(
         frauduleux=prediction["frauduleux"],
         probabilite=prediction["probabilite"],
         niveau_risque=prediction["niveau_risque"],
+    )
+
+
+def obtenir_statistiques(connexion: sqlite3.Connection) -> Statistiques:
+    """Agregats consommes par le dashboard (cartes KPI + graphiques)."""
+    ligne = connexion.execute(
+        """
+        SELECT
+            (SELECT COUNT(*) FROM transactions) AS total_transactions,
+            (SELECT COUNT(*) FROM analyses_fraude) AS transactions_analysees,
+            (SELECT COUNT(*) FROM analyses_fraude WHERE statut = 'suspect') AS transactions_suspectes,
+            (SELECT COUNT(*) FROM analyses_fraude WHERE statut = 'fraude') AS transactions_frauduleuses,
+            (SELECT COALESCE(AVG(score_fraude), 0) FROM analyses_fraude) AS score_risque_moyen
+        """
+    ).fetchone()
+
+    total = ligne["total_transactions"]
+    frauduleuses = ligne["transactions_frauduleuses"]
+    taux_fraude = (frauduleuses / total) if total > 0 else 0.0
+
+    return Statistiques(
+        total_transactions=total,
+        transactions_analysees=ligne["transactions_analysees"],
+        transactions_suspectes=ligne["transactions_suspectes"],
+        transactions_frauduleuses=frauduleuses,
+        taux_fraude=round(taux_fraude, 4),
+        score_risque_moyen=round(float(ligne["score_risque_moyen"]), 4),
     )
