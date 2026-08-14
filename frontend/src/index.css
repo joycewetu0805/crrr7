@@ -1,0 +1,56 @@
+@import "tailwindcss";
+
+/*
+ * FRAUDSHIELD - Design tokens.
+ * Theme sombre "cybersecurite/fintech", assume comme le seul theme de
+ * l'application (pas de bascule clair/sombre pour ce MVP).
+ * Les couleurs "status-*" sont reservees aux niveaux de risque
+ * (legitime/suspect/fraude) et ne doivent jamais servir a autre chose.
+ * @theme genere automatiquement les classes utilitaires Tailwind
+ * (bg-page, text-primary, border-border, text-status-good, ...).
+ */
+@theme {
+  --color-page: #0d0d0d;
+  --color-surface: #1a1a19;
+  --color-surface-raised: #201f1d;
+
+  --color-primary: #ffffff;
+  --color-secondary: #c3c2b7;
+  --color-muted: #898781;
+
+  --color-border: rgba(255, 255, 255, 0.1);
+  --color-gridline: #2c2c2a;
+
+  --color-accent: #3987e5;
+  --color-accent-strong: #5aa0ef;
+
+  --color-status-good: #0ca30c;
+  --color-status-warning: #fab219;
+  --color-status-critical: #d03b3b;
+
+  --font-sans:
+    system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-page);
+  color: var(--color-primary);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Colonnes de chiffres alignees (tableau de transactions). */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}

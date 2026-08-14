@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+venv/
+.venv/
+
+# Base de donnees locale : recreee automatiquement au demarrage du
+# serveur (voir backend/app/db/database.py), ne doit pas etre versionnee.
+backend/fraudshield.db
