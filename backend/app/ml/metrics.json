@@ -1,0 +1,47 @@
+{
+  "modele_retenu": "Random Forest",
+  "features": [
+    "montant",
+    "montant_moyen_compte",
+    "ecart_montant",
+    "heure",
+    "nb_transactions_1h",
+    "pays_inhabituel",
+    "heure_nuit",
+    "type_transaction",
+    "canal"
+  ],
+  "metriques_test": {
+    "modele": "Random Forest",
+    "precision": 0.6964,
+    "recall": 0.9512,
+    "f1_score": 0.8041,
+    "roc_auc": 0.9968
+  },
+  "comparaison_complete": [
+    {
+      "modele": "Random Forest",
+      "precision": 0.6964,
+      "recall": 0.9512,
+      "f1_score": 0.8041,
+      "roc_auc": 0.9968
+    },
+    {
+      "modele": "Arbre de Decision",
+      "precision": 0.6581,
+      "recall": 0.939,
+      "f1_score": 0.7739,
+      "roc_auc": 0.9659
+    },
+    {
+      "modele": "Regression Logistique",
+      "precision": 0.427,
+      "recall": 0.9268,
+      "f1_score": 0.5846,
+      "roc_auc": 0.9795
+    }
+  ],
+  "taille_train": 6400,
+  "taille_test": 1600,
+  "taux_fraude_dataset": 0.0514
+}
