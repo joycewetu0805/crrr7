@@ -44,6 +44,11 @@ def predire(
     except CompteInconnuError as erreur:
         # 404 : la transaction n'a pas ete enregistree, le compte n'existe pas.
         raise HTTPException(status_code=404, detail=str(erreur))
+    except FileNotFoundError as erreur:
+        # 503 : le modele ML n'est pas present (ex: clone du depot sans avoir
+        # lance ml/train.py). Sans ce bloc, FastAPI renverrait un 500 generique
+        # ("Internal Server Error") sans indiquer la cause reelle.
+        raise HTTPException(status_code=503, detail=str(erreur))
 
 
 @router.get("/transactions", response_model=list[TransactionHistorique])
