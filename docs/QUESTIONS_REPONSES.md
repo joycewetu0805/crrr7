@@ -15,6 +15,7 @@ score de risque et une alerte si nécessaire.
 
 **Plus en détail :** FraudShield AI est composé de 4 briques qui
 communiquent entre elles :
+
 1. Un **dataset** synthétique de transactions (pour entraîner le modèle)
 2. Un **modèle de Machine Learning** (Random Forest) qui calcule une
    probabilité de fraude
@@ -232,6 +233,7 @@ ressemble aux fraudes qu'il a apprises."
 analyste — prioriser ce qui mérite une attention humaine.
 
 **Le dashboard regroupe 4 choses :**
+
 1. **Des cartes KPI** (total de transactions, taux de fraude, score moyen…)
    pour une vue d'ensemble immédiate
 2. **Un panneau d'alertes** qui remonte automatiquement toute transaction
