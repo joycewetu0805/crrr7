@@ -837,7 +837,7 @@ function updateLabel() {
   meaningEl.textContent = v.meaning;
   const [r, g, b] = v.ribbon;
   document.documentElement.style.setProperty('--accent', `rgb(${Math.max(r, 120)},${Math.max(g, 90)},${Math.max(b, 120)})`);
-  history.replaceState(null, '', `${location.pathname}${location.search}#${v.key}`);
+  try { history.replaceState(null, '', `${location.pathname}${location.search}#${v.key}`); } catch (e) { /* cadre restreint */ }
 }
 
 function go(delta) {
