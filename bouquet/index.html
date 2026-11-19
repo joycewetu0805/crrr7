@@ -11,7 +11,9 @@
     --fg: #f4ecf6;
     --muted: #a493b0;
     --accent: #ff7eb6;
-    --nav-h: 132px;
+    --nav-h: 222px;
+    --thumb-h: 76px;
+    --thumb-w: 68px;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body {
@@ -64,39 +66,13 @@
   #nav {
     position: fixed;
     left: 50%;
-    bottom: max(16px, env(safe-area-inset-bottom));
+    bottom: max(12px, env(safe-area-inset-bottom));
     transform: translateX(-50%);
-    width: min(440px, calc(100% - 32px));
-    display: grid;
-    grid-template-columns: 56px 1fr 56px;
-    align-items: center;
-    gap: 12px;
+    width: min(620px, calc(100% - 24px));
   }
-  .arrow {
-    width: 56px;
-    height: 56px;
-    border-radius: 50%;
-    border: 1px solid rgba(255, 255, 255, 0.16);
-    background: rgba(255, 255, 255, 0.05);
-    color: var(--fg);
-    display: grid;
-    place-items: center;
-    cursor: pointer;
-    -webkit-backdrop-filter: blur(8px);
-    backdrop-filter: blur(8px);
-    transition: transform 0.15s, border-color 0.3s, box-shadow 0.3s, background 0.3s;
-  }
-  .arrow svg { width: 24px; height: 24px; }
-  .arrow:hover {
-    border-color: var(--accent);
-    box-shadow: 0 0 18px -4px var(--accent);
-    background: rgba(255, 255, 255, 0.08);
-  }
-  .arrow:active { transform: scale(0.92); }
-  .arrow:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
-  .info { text-align: center; min-width: 0; }
+  .info { text-align: center; min-width: 0; margin-bottom: 10px; }
   #name {
-    font: italic 600 24px/1.1 Georgia, "Times New Roman", serif;
+    font: italic 600 26px/1.1 Georgia, "Times New Roman", serif;
     letter-spacing: 0.01em;
     white-space: nowrap;
     overflow: hidden;
@@ -110,23 +86,75 @@
     overflow: hidden;
     text-overflow: ellipsis;
   }
-  #dots {
-    margin-top: 10px;
-    display: flex;
-    justify-content: center;
-    gap: 7px;
+  .picker {
+    display: grid;
+    grid-template-columns: 44px 1fr 44px;
+    align-items: center;
+    gap: 6px;
   }
-  #dots button {
-    width: 7px;
-    height: 7px;
-    padding: 0;
-    border: 0;
-    border-radius: 4px;
-    background: rgba(255, 255, 255, 0.25);
+  .arrow {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--fg);
+    display: grid;
+    place-items: center;
     cursor: pointer;
-    transition: width 0.3s, background 0.3s;
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+    transition: transform 0.15s, border-color 0.3s, box-shadow 0.3s, background 0.3s;
   }
-  #dots button[aria-current="true"] { width: 22px; background: var(--accent); }
+  .arrow svg { width: 20px; height: 20px; }
+  .arrow:hover {
+    border-color: var(--accent);
+    box-shadow: 0 0 18px -4px var(--accent);
+    background: rgba(255, 255, 255, 0.08);
+  }
+  .arrow:active { transform: scale(0.92); }
+  .arrow:focus-visible, .thumb:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+  #thumbs {
+    position: relative;
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding: 6px 4px;
+    scrollbar-width: none;
+    scroll-snap-type: x proximity;
+  }
+  #thumbs::-webkit-scrollbar { display: none; }
+  .thumb {
+    flex: 0 0 auto;
+    width: var(--thumb-w);
+    padding: 4px 4px 5px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.03);
+    color: var(--muted);
+    cursor: pointer;
+    opacity: 0.55;
+    transform: scale(0.88);
+    scroll-snap-align: center;
+    transition: opacity 0.3s, transform 0.3s, border-color 0.3s, box-shadow 0.3s, color 0.3s;
+  }
+  .thumb:hover { opacity: 0.85; }
+  .thumb[aria-selected="true"] {
+    opacity: 1;
+    transform: scale(1);
+    color: var(--fg);
+    border-color: var(--accent);
+    box-shadow: 0 0 16px -5px var(--accent);
+  }
+  .thumb canvas { display: block; width: 100%; height: var(--thumb-h); }
+  .thumb span {
+    display: block;
+    margin-top: 2px;
+    font-size: 10px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
   #hint {
     position: fixed;
     top: max(18px, env(safe-area-inset-top));
@@ -143,9 +171,10 @@
   #hint span { display: inline-block; animation: nudge 1.6s ease-in-out infinite; }
   #hint span:last-child { animation-direction: reverse; }
   @keyframes nudge { 50% { transform: translateX(-5px); } }
-  @media (max-height: 560px) {
-    :root { --nav-h: 104px; }
-    #dots { margin-top: 6px; }
+  @media (max-height: 620px) {
+    :root { --nav-h: 168px; --thumb-h: 52px; --thumb-w: 54px; }
+    .info { margin-bottom: 4px; }
+    #name { font-size: 21px; }
   }
 </style>
 </head>
@@ -159,17 +188,19 @@
 <div id="dedication">pour toi ♥</div>
 
 <nav id="nav" aria-label="Choisir un bouquet">
-  <button class="arrow" id="prev" aria-label="Bouquet précédent">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
-  </button>
   <div class="info" aria-live="polite">
     <div id="name">Roses</div>
     <div id="meaning">&nbsp;</div>
-    <div id="dots"></div>
   </div>
-  <button class="arrow" id="next" aria-label="Bouquet suivant">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-  </button>
+  <div class="picker">
+    <button class="arrow" id="prev" aria-label="Bouquet précédent">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
+    </button>
+    <div id="thumbs" role="tablist" aria-label="Bouquets"></div>
+    <button class="arrow" id="next" aria-label="Bouquet suivant">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+    </button>
+  </div>
 </nav>
 
 <script>
@@ -225,6 +256,12 @@ class Cloud {
   }
   pack(R) {
     const n = this.v.length / 10, S = 11, out = new Float32Array(n * S);
+    // Recentre le bouquet sur l'axe vertical passant par le centre des fleurs,
+    // pour qu'il pivote sur lui-même au lieu de tourner autour d'un point décalé.
+    let mx = 0, mz = 0, mc = 0;
+    for (let i = 0; i < n; i++) if (this.v[i * 10 + 1] > 0.1) { mx += this.v[i * 10]; mz += this.v[i * 10 + 2]; mc++; }
+    if (mc) { mx /= mc; mz /= mc; }
+    for (let i = 0; i < n; i++) { this.v[i * 10] -= mx; this.v[i * 10 + 2] -= mz; }
     let ymin = Infinity, ymax = -Infinity, rmax = 0;
     for (let i = 0; i < n; i++) {
       const y = this.v[i * 10 + 1];
@@ -638,53 +675,67 @@ const VARIANTS = [
 
 /* ------------------------------------------------------------------ *
  *  Rendu ASCII
+ *  Une "vue" = un canvas + sa grille de caractères. La grande vue dessine
+ *  des caractères ; les miniatures dessinent de petits carrés.
  * ------------------------------------------------------------------ */
-const stage = document.getElementById('stage');
-const cv = document.getElementById('main'), ctx = cv.getContext('2d');
-const gv = document.getElementById('glow'), gctx = gv.getContext('2d');
+const D = 6;                           // distance de la caméra
+const LIGHT = nrm([-0.45, 0.7, 0.65]); // lumière venant d'en haut à gauche
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-let W = 0, H = 0, dpr = 1, fs = 8, cw = 5, ch = 8, cols = 0, rows = 0;
-let zb, ib, touched, stars = [];
-
-function resize() {
-  dpr = Math.min(window.devicePixelRatio || 1, 2);
-  W = stage.clientWidth; H = stage.clientHeight;
-  for (const c of [cv, gv]) { c.width = Math.round(W * dpr); c.height = Math.round(H * dpr); }
-  fs = clamp(Math.round(H / 100), 6, 11);
-  ctx.font = `bold ${fs}px ${FONT}`;
-  cw = ctx.measureText('M').width || fs * 0.6;
-  ch = fs;
-  cols = Math.ceil(W / cw); rows = Math.ceil(H / ch);
-  zb = new Float32Array(cols * rows); ib = new Int32Array(cols * rows); touched = new Int32Array(cols * rows);
-  const R = rng(99);
-  stars = Array.from({ length: Math.round((cols * rows) / 140) }, () => ({
-    c: (R() * cols) | 0, r: (R() * rows) | 0, ch: '..·+*'[(R() * 5) | 0],
-    sp: 0.6 + 1.8 * R(), ph: R() * TAU, pink: R() < 0.25,
-  }));
-}
-
-const D = 6;                        // distance de la caméra
-const LIGHT = nrm([-0.45, 0.7, 0.65]); // lumière venant d'en haut à gauche
-
-function render(cloud, t, rot, G, offX) {
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  ctx.clearRect(0, 0, W, H);
-  ctx.font = `bold ${fs}px ${FONT}`;
-  ctx.textBaseline = 'top';
-
-  // étoiles scintillantes
-  for (const s of stars) {
-    const a = Math.pow(0.5 + 0.5 * Math.sin(t * s.sp + s.ph), 3);
-    if (a < 0.05) continue;
-    ctx.fillStyle = s.pink ? `rgba(255,140,190,${a * 0.8})` : `rgba(235,225,255,${a * 0.7})`;
-    ctx.fillText(s.ch, s.c * cw, s.r * ch);
+class View {
+  constructor(canvas, { text = true, stars = false, fill = 0.82 } = {}) {
+    this.cv = canvas;
+    this.ctx = canvas.getContext('2d');
+    this.text = text;
+    this.withStars = stars;
+    this.fill = fill;
+    this.resize();
   }
 
-  if (cloud) {
+  resize() {
+    const dpr = (this.dpr = Math.min(window.devicePixelRatio || 1, 2));
+    const W = (this.W = this.cv.clientWidth), H = (this.H = this.cv.clientHeight);
+    this.cv.width = Math.max(1, Math.round(W * dpr));
+    this.cv.height = Math.max(1, Math.round(H * dpr));
+    if (this.text) {
+      this.fs = clamp(Math.round(H / 95), 6, 11);
+      this.ctx.font = `bold ${this.fs}px ${FONT}`;
+      this.cw = this.ctx.measureText('M').width || this.fs * 0.6;
+      this.ch = this.fs;
+    } else {
+      this.cw = this.ch = 1.6;
+    }
+    this.cols = Math.max(1, Math.ceil(W / this.cw));
+    this.rows = Math.max(1, Math.ceil(H / this.ch));
+    const n = this.cols * this.rows;
+    this.zb = new Float32Array(n); this.ib = new Int32Array(n); this.touched = new Int32Array(n);
+    this.stars = [];
+    if (this.withStars) {
+      const R = rng(99);
+      this.stars = Array.from({ length: Math.round(n / 140) }, () => ({
+        c: (R() * this.cols) | 0, r: (R() * this.rows) | 0, ch: '..·+*'[(R() * 5) | 0],
+        sp: 0.6 + 1.8 * R(), ph: R() * TAU, pink: R() < 0.25,
+      }));
+    }
+  }
+
+  draw(cloud, t, rot, G = 1.1, offX = 0) {
+    const { ctx, W, H, cw, ch, cols, rows, zb, ib, touched } = this;
+    ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+    if (this.text) { ctx.font = `bold ${this.fs}px ${FONT}`; ctx.textBaseline = 'top'; }
+
+    for (const s of this.stars) {
+      const a = Math.pow(0.5 + 0.5 * Math.sin(t * s.sp + s.ph), 3);
+      if (a < 0.05) continue;
+      ctx.fillStyle = s.pink ? `rgba(255,140,190,${a * 0.8})` : `rgba(235,225,255,${a * 0.7})`;
+      ctx.fillText(s.ch, s.c * cw, s.r * ch);
+    }
+    if (!cloud) return;
+
     const P = cloud.data, N = cloud.n, S = 11;
     const span = cloud.ymax - cloud.ymin;
-    const sc = Math.min((H * 0.8) / (span * 1.1), (W * 1.0) / (2 * cloud.rmax * 1.08));
+    const sc = Math.min((H * this.fill) / (span * 1.1), W / (2 * cloud.rmax * 1.08));
     const cx = W / 2 + offX, cy = H / 2 + ((cloud.ymax + cloud.ymin) / 2) * sc;
     const tilt = 0.24 + 0.06 * Math.sin(t * 0.5);
     const ct = Math.cos(rot), st = Math.sin(rot), cp = Math.cos(tilt), sp = Math.sin(tilt);
@@ -714,30 +765,44 @@ function render(cloud, t, rot, G, offX) {
       const z2 = D - 1 / zb[k];
       let lum = 0.16 + 0.84 * Math.max(0, nx2 * LIGHT[0] + ny2 * LIGHT[1] + nz2 * LIGHT[2]);
       lum *= 0.72 + 0.28 * clamp((z2 + 1) / 2, 0, 1);
-      const ramp = RAMPS[P[o + 9]];
-      const chr = ramp[Math.min(ramp.length - 1, (lum * ramp.length) | 0)];
       const kk = 0.35 + 0.85 * lum;
       let rr = P[o + 6] * kk, gg = P[o + 7] * kk, bb = P[o + 8] * kk;
       if (G < 1.05 && P[o + 10] > G - 0.05) { rr = rr * 0.4 + 155; gg = gg * 0.4 + 150; bb = bb * 0.4 + 155; } // front de pousse
       ctx.fillStyle = `rgb(${rr > 255 ? 255 : rr | 0},${gg > 255 ? 255 : gg | 0},${bb > 255 ? 255 : bb | 0})`;
-      ctx.fillText(chr, (k % cols) * cw, ((k / cols) | 0) * ch);
+      const px = (k % cols) * cw, py = ((k / cols) | 0) * ch;
+      if (this.text) {
+        const ramp = RAMPS[P[o + 9]];
+        ctx.fillText(ramp[Math.min(ramp.length - 1, (lum * ramp.length) | 0)], px, py);
+      } else {
+        ctx.fillRect(px, py, cw, ch);
+      }
       zb[k] = 0;
     }
   }
-
-  gctx.setTransform(1, 0, 0, 1, 0, 0);
-  gctx.clearRect(0, 0, gv.width, gv.height);
-  gctx.drawImage(cv, 0, 0);
 }
 
 /* ------------------------------------------------------------------ *
- *  Navigation : flèches, points, swipe, clavier
+ *  Navigation : flèches, miniatures, swipe, clavier
  * ------------------------------------------------------------------ */
 const cache = new Map();
 const get = (i) => { if (!cache.has(i)) cache.set(i, build(VARIANTS[i])); return cache.get(i); };
+// Version allégée (1 point sur 4) pour les miniatures : elles peuvent tourner en continu.
+const mini = new Map();
+const getMini = (i) => {
+  if (!mini.has(i)) {
+    const c = get(i), S = 11, n = Math.ceil(c.n / 4), data = new Float32Array(n * S);
+    for (let j = 0; j < n; j++) data.set(c.data.subarray(j * 4 * S, j * 4 * S + S), j * S);
+    mini.set(i, { ...c, data, n });
+  }
+  return mini.get(i);
+};
+
+const stage = document.getElementById('stage');
+const gv = document.getElementById('glow'), gctx = gv.getContext('2d');
+const main = new View(document.getElementById('main'), { stars: true, fill: 0.86 });
 
 const nameEl = document.getElementById('name'), meaningEl = document.getElementById('meaning');
-const dotsEl = document.getElementById('dots'), hintEl = document.getElementById('hint');
+const thumbsEl = document.getElementById('thumbs'), hintEl = document.getElementById('hint');
 const dedicationEl = document.getElementById('dedication');
 
 const params = new URLSearchParams(location.search);
@@ -747,18 +812,29 @@ if (who) dedicationEl.textContent = `pour ${who} ♥`;
 let idx = Math.max(0, VARIANTS.findIndex((v) => v.key === location.hash.slice(1)));
 let target = idx, phase = 'grow', growth = 0, slide = 0;
 
-VARIANTS.forEach((v, i) => {
+// Une miniature par bouquet : les choix restent petits, la sélection s'affiche en grand.
+const thumbs = VARIANTS.map((v, i) => {
   const b = document.createElement('button');
+  b.className = 'thumb';
+  b.setAttribute('role', 'tab');
   b.setAttribute('aria-label', v.name);
-  b.addEventListener('click', () => go(i - idx));
-  dotsEl.appendChild(b);
+  b.innerHTML = '<canvas aria-hidden="true"></canvas><span></span>';
+  b.querySelector('span').textContent = v.name;
+  b.addEventListener('click', () => go(i - (phase === 'out' ? target : idx)));
+  thumbsEl.appendChild(b);
+  return { el: b, view: new View(b.querySelector('canvas'), { text: false, fill: 0.92 }) };
 });
+
+function select(i) {
+  thumbs.forEach((t, j) => t.el.setAttribute('aria-selected', String(j === i)));
+  const el = thumbs[i].el;
+  thumbsEl.scrollTo({ left: el.offsetLeft - (thumbsEl.clientWidth - el.offsetWidth) / 2, behavior: 'smooth' });
+}
 
 function updateLabel() {
   const v = VARIANTS[idx];
   nameEl.textContent = v.name;
   meaningEl.textContent = v.meaning;
-  [...dotsEl.children].forEach((b, i) => b.setAttribute('aria-current', String(i === idx)));
   const [r, g, b] = v.ribbon;
   document.documentElement.style.setProperty('--accent', `rgb(${Math.max(r, 120)},${Math.max(g, 90)},${Math.max(b, 120)})`);
   history.replaceState(null, '', `${location.pathname}${location.search}#${v.key}`);
@@ -769,6 +845,7 @@ function go(delta) {
   target = (((phase === 'out' ? target : idx) + delta) % VARIANTS.length + VARIANTS.length) % VARIANTS.length;
   slide = Math.sign(delta);
   phase = 'out';
+  select(target);
   hintEl.classList.add('hidden');
 }
 
@@ -793,12 +870,18 @@ setTimeout(() => hintEl.classList.add('hidden'), 6000);
 /* ------------------------------------------------------------------ *
  *  Boucle d'animation
  * ------------------------------------------------------------------ */
+function resize() {
+  main.resize();
+  gv.width = main.cv.width; gv.height = main.cv.height;
+  thumbs.forEach((t) => t.view.resize());
+  select(target);
+}
 resize();
 addEventListener('resize', resize);
 updateLabel();
 let cloud = get(idx);
 
-// Prépare les autres bouquets en tâche de fond pour un swipe instantané.
+// Prépare les autres bouquets en tâche de fond (miniatures + swipe instantané).
 const idle = window.requestIdleCallback || ((f) => setTimeout(f, 60));
 let pre = 0;
 (function warm() {
@@ -807,12 +890,12 @@ let pre = 0;
   idle(warm);
 })();
 
-let last = performance.now(), rot = 0.6;
+let last = performance.now(), rot = 0.6, frameNo = 0;
 const ease = (x) => 1 - Math.pow(1 - x, 3);
 function loop(now) {
   const dt = Math.min(0.05, (now - last) / 1000);
   last = now;
-  rot += dt * (reduceMotion ? 0.12 : 0.45);
+  rot += dt * (reduceMotion ? 0.12 : 0.6);
 
   if (phase === 'out') {
     growth -= dt * 3.4;
@@ -824,9 +907,19 @@ function loop(now) {
     growth = Math.min(1.1, growth + dt * (reduceMotion ? 2 : 0.7));
   }
   const g = clamp(growth, 0, 1);
-  const offX = phase === 'out' ? -slide * (1 - g) * W * 0.2 : slide * (1 - ease(g)) * W * 0.2;
+  const offX = phase === 'out' ? -slide * (1 - g) * main.W * 0.2 : slide * (1 - ease(g)) * main.W * 0.2;
 
-  render(cloud, now / 1000, rot, growth, offX);
+  main.draw(cloud, now / 1000, rot, growth, offX);
+  gctx.setTransform(1, 0, 0, 1, 0, 0);
+  gctx.clearRect(0, 0, gv.width, gv.height);
+  gctx.drawImage(main.cv, 0, 0);
+
+  // Miniatures : deux redessinées par frame, chacune pivote sur elle-même.
+  for (let q = 0; q < 2; q++) {
+    const ti = frameNo++ % thumbs.length;
+    if (cache.has(ti)) thumbs[ti].view.draw(getMini(ti), now / 1000, rot + ti * 1.1, 1.1);
+  }
+
   requestAnimationFrame(loop);
 }
 requestAnimationFrame(loop);

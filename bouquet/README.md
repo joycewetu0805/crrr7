@@ -20,7 +20,9 @@ Aucun build, aucune dépendance : ouvre `index.html` dans un navigateur
 
 ## Navigation
 
-- flèches ← → en bas de l'écran, ou les petits points
+- le bouquet sélectionné s'affiche en grand et pivote sur lui-même
+- en bas, une rangée de miniatures (qui tournent aussi) : touche-en une pour l'afficher
+- flèches ← → de chaque côté des miniatures
 - swipe gauche / droite sur mobile
 - flèches du clavier sur ordinateur
 
