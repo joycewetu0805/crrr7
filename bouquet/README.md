@@ -28,7 +28,6 @@ Aucun build, aucune dépendance : ouvre `index.html` dans un navigateur
 
 ## Personnaliser
 
-- `index.html?pour=Sarah` → affiche « pour Sarah ♥ » sous le bouquet
 - `index.html#lilas` → ouvre directement une variante
   (`roses`, `lys`, `lilas`, `tulipes`, `tournesols`, `mixte`)
 
