@@ -1,0 +1,933 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#07050c">
+<title>Bouquet ASCII 3D</title>
+<style>
+  :root {
+    --bg: #07050c;
+    --fg: #f4ecf6;
+    --muted: #a493b0;
+    --accent: #ff7eb6;
+    --nav-h: 222px;
+    --thumb-h: 76px;
+    --thumb-w: 68px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--fg);
+    overflow: hidden;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    background:
+      radial-gradient(ellipse 70% 55% at 50% 42%, #1c1026 0%, rgba(7, 5, 12, 0) 70%),
+      var(--bg);
+  }
+  #stage {
+    position: fixed;
+    inset: 0 0 var(--nav-h) 0;
+    touch-action: none;
+    cursor: grab;
+  }
+  #stage:active { cursor: grabbing; }
+  #stage canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+  /* Halo lumineux : copie floutée du rendu, comme les LED du terminal. */
+  #glow {
+    filter: blur(6px) saturate(1.5);
+    opacity: 0.75;
+    mix-blend-mode: screen;
+  }
+  #nav {
+    position: fixed;
+    left: 50%;
+    bottom: max(12px, env(safe-area-inset-bottom));
+    transform: translateX(-50%);
+    width: min(620px, calc(100% - 24px));
+  }
+  .info { text-align: center; min-width: 0; margin-bottom: 10px; }
+  #name {
+    font: italic 600 26px/1.1 Georgia, "Times New Roman", serif;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  #meaning {
+    margin-top: 4px;
+    font-size: 13px;
+    color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .picker {
+    display: grid;
+    grid-template-columns: 44px 1fr 44px;
+    align-items: center;
+    gap: 6px;
+  }
+  .arrow {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--fg);
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+    transition: transform 0.15s, border-color 0.3s, box-shadow 0.3s, background 0.3s;
+  }
+  .arrow svg { width: 20px; height: 20px; }
+  .arrow:hover {
+    border-color: var(--accent);
+    box-shadow: 0 0 18px -4px var(--accent);
+    background: rgba(255, 255, 255, 0.08);
+  }
+  .arrow:active { transform: scale(0.92); }
+  .arrow:focus-visible, .thumb:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+  #thumbs {
+    position: relative;
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding: 6px 4px;
+    scrollbar-width: none;
+    scroll-snap-type: x proximity;
+  }
+  #thumbs::-webkit-scrollbar { display: none; }
+  .thumb {
+    flex: 0 0 auto;
+    width: var(--thumb-w);
+    padding: 4px 4px 5px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.03);
+    color: var(--muted);
+    cursor: pointer;
+    opacity: 0.55;
+    transform: scale(0.88);
+    scroll-snap-align: center;
+    transition: opacity 0.3s, transform 0.3s, border-color 0.3s, box-shadow 0.3s, color 0.3s;
+  }
+  .thumb:hover { opacity: 0.85; }
+  .thumb[aria-selected="true"] {
+    opacity: 1;
+    transform: scale(1);
+    color: var(--fg);
+    border-color: var(--accent);
+    box-shadow: 0 0 16px -5px var(--accent);
+  }
+  /* Animation de sélection : petit rebond de la miniature + titre qui remonte. */
+  .thumb.pop { animation: pop 0.45s cubic-bezier(0.3, 1.6, 0.5, 1); }
+  @keyframes pop { 0% { transform: scale(0.88); } 55% { transform: scale(1.07); } 100% { transform: scale(1); } }
+  .info.rise > * { animation: rise 0.5s ease-out both; }
+  .info.rise > #meaning { animation-delay: 0.08s; }
+  @keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) {
+    .thumb.pop, .info.rise > * { animation: none; }
+  }
+  .thumb canvas { display: block; width: 100%; height: var(--thumb-h); }
+  .thumb span {
+    display: block;
+    margin-top: 2px;
+    font-size: 10px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  #hint {
+    position: fixed;
+    top: max(18px, env(safe-area-inset-top));
+    left: 0;
+    right: 0;
+    text-align: center;
+    font: 12px/1 "SF Mono", Menlo, Consolas, monospace;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+    pointer-events: none;
+    transition: opacity 0.8s;
+  }
+  #hint.hidden { opacity: 0; }
+  #hint span { display: inline-block; animation: nudge 1.6s ease-in-out infinite; }
+  #hint span:last-child { animation-direction: reverse; }
+  @keyframes nudge { 50% { transform: translateX(-5px); } }
+  @media (max-height: 620px) {
+    :root { --nav-h: 168px; --thumb-h: 52px; --thumb-w: 54px; }
+    .info { margin-bottom: 4px; }
+    #name { font-size: 21px; }
+  }
+</style>
+</head>
+<body>
+<div id="stage" aria-label="Bouquet de fleurs en ASCII qui tourne en 3D" role="img">
+  <canvas id="glow" aria-hidden="true"></canvas>
+  <canvas id="main" aria-hidden="true"></canvas>
+</div>
+
+<div id="hint"><span>←</span> glisse pour changer de bouquet <span>→</span></div>
+
+<nav id="nav" aria-label="Choisir un bouquet">
+  <div class="info" aria-live="polite">
+    <div id="name">Roses</div>
+    <div id="meaning">&nbsp;</div>
+  </div>
+  <div class="picker">
+    <button class="arrow" id="prev" aria-label="Bouquet précédent">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 6l-6 6 6 6"/></svg>
+    </button>
+    <div id="thumbs" role="tablist" aria-label="Bouquets"></div>
+    <button class="arrow" id="next" aria-label="Bouquet suivant">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+    </button>
+  </div>
+</nav>
+
+<script>
+(() => {
+'use strict';
+
+/* ------------------------------------------------------------------ *
+ *  Petits outils
+ * ------------------------------------------------------------------ */
+const TAU = Math.PI * 2;
+const GOLDEN = 2.39996323;
+const FONT = '"SF Mono", Menlo, Consolas, "DejaVu Sans Mono", "Liberation Mono", monospace';
+
+const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+const nrm = (a) => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
+const mix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+const mul = (c, k) => [c[0] * k, c[1] * k, c[2] * k];
+const clamp = (x, a, b) => (x < a ? a : x > b ? b : x);
+const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
+
+// Générateur pseudo-aléatoire déterministe (mulberry32) : chaque bouquet
+// est toujours identique d'un chargement à l'autre.
+function rng(seed) {
+  let s = seed >>> 0;
+  return () => {
+    s = (s + 0x6d2b79f5) | 0;
+    let t = Math.imul(s ^ (s >>> 15), 1 | s);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/* Styles de caractères : du plus sombre au plus lumineux. */
+const RAMPS = [
+  '.,-~:;=!*#$@',  // 0 pétales
+  '.,:;!|||',      // 1 tiges
+  '.,:;+*%#',      // 2 feuilles
+  '.,--~==#',      // 3 papier
+  '.:-=o*O@',      // 4 ruban
+  '.,:o*%@@',      // 5 coeurs / graines
+  '.:oo*O@@',      // 6 petites fleurs (lilas, gypsophile)
+];
+
+/* ------------------------------------------------------------------ *
+ *  Nuage de points 3D
+ *  Chaque point : position, normale, couleur, style de caractère.
+ * ------------------------------------------------------------------ */
+class Cloud {
+  constructor() { this.v = []; }
+  add(F, x, y, z, nx, ny, nz, c, st) {
+    const p = F.p(x, y, z), n = F.n(nx, ny, nz);
+    this.v.push(p[0], p[1], p[2], n[0], n[1], n[2], c[0], c[1], c[2], st);
+  }
+  pack(R) {
+    const n = this.v.length / 10, S = 11, out = new Float32Array(n * S);
+    // Recentre le bouquet sur l'axe vertical passant par le centre des fleurs,
+    // pour qu'il pivote sur lui-même au lieu de tourner autour d'un point décalé.
+    let mx = 0, mz = 0, mc = 0;
+    for (let i = 0; i < n; i++) if (this.v[i * 10 + 1] > 0.1) { mx += this.v[i * 10]; mz += this.v[i * 10 + 2]; mc++; }
+    if (mc) { mx /= mc; mz /= mc; }
+    for (let i = 0; i < n; i++) { this.v[i * 10] -= mx; this.v[i * 10 + 2] -= mz; }
+    let ymin = Infinity, ymax = -Infinity, rmax = 0;
+    for (let i = 0; i < n; i++) {
+      const y = this.v[i * 10 + 1];
+      if (y < ymin) ymin = y;
+      if (y > ymax) ymax = y;
+      rmax = Math.max(rmax, Math.hypot(this.v[i * 10], this.v[i * 10 + 2]));
+    }
+    for (let i = 0; i < n; i++) {
+      const s = i * 10, o = i * S;
+      for (let k = 0; k < 10; k++) out[o + k] = this.v[s + k];
+      const l = Math.hypot(out[o + 3], out[o + 4], out[o + 5]) || 1;
+      out[o + 3] /= l; out[o + 4] /= l; out[o + 5] /= l;
+      // Seuil d'apparition : le bouquet "pousse" du bas vers le haut.
+      out[o + 10] = 0.72 * (out[o + 1] - ymin) / (ymax - ymin) + 0.28 * R();
+    }
+    this.v = null;
+    return { data: out, n, ymin, ymax, rmax };
+  }
+}
+
+/* Repère local d'une fleur : l'axe +y local pointe vers `dir`. */
+function frame(pos, dir, s, spin) {
+  const d = nrm(dir);
+  const a = Math.abs(d[1]) < 0.95 ? [0, 1, 0] : [1, 0, 0];
+  const u = nrm(cross(a, d)), w = cross(d, u);
+  const c = Math.cos(spin), sn = Math.sin(spin);
+  const rot = (x, y, z) => {
+    const X = x * c - z * sn, Z = x * sn + z * c;
+    return [X * u[0] + y * d[0] + Z * w[0], X * u[1] + y * d[1] + Z * w[1], X * u[2] + y * d[2] + Z * w[2]];
+  };
+  return {
+    p: (x, y, z) => { const r = rot(x, y, z); return [pos[0] + s * r[0], pos[1] + s * r[1], pos[2] + s * r[2]]; },
+    n: rot,
+  };
+}
+const IDENT = { p: (x, y, z) => [x, y, z], n: (x, y, z) => [x, y, z] };
+
+/* Surface paramétrique f(u, v), u ∈ [0,1], v ∈ [-1,1]. Normales par différences finies. */
+function surf(C, F, f, nu, nv, col, st) {
+  const e = 1e-3;
+  for (let i = 0; i < nu; i++) {
+    const u = i / (nu - 1);
+    for (let j = 0; j < nv; j++) {
+      const v = -1 + (2 * j) / (nv - 1);
+      const p = f(u, v);
+      const a = f(Math.min(1, u + e), v), b = f(Math.max(0, u - e), v);
+      const c = f(u, Math.min(1, v + e)), d = f(u, Math.max(-1, v - e));
+      let n = cross([a[0] - b[0], a[1] - b[1], a[2] - b[2]], [c[0] - d[0], c[1] - d[1], c[2] - d[2]]);
+      if (n[0] * n[0] + n[1] * n[1] + n[2] * n[2] < 1e-18) n = [0, 1, 0];
+      C.add(F, p[0], p[1], p[2], n[0], n[1], n[2], typeof col === 'function' ? col(u, v) : col, st);
+    }
+  }
+}
+
+function sphere(C, F, cx, cy, cz, r, n, col, st, sy = 1) {
+  for (let i = 0; i < n; i++) {
+    const y = 1 - (2 * (i + 0.5)) / n, rr = Math.sqrt(1 - y * y), th = i * GOLDEN;
+    const x = Math.cos(th) * rr, z = Math.sin(th) * rr;
+    C.add(F, cx + x * r, cy + y * r * sy, cz + z * r, x, y / sy, z, col, st);
+  }
+}
+
+function tube(C, F, p0, p1, r, col, st, k = 6, step = 0.008) {
+  const d = [p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2]];
+  const L = Math.hypot(d[0], d[1], d[2]);
+  const t = mul(d, 1 / L);
+  const a = Math.abs(t[1]) < 0.9 ? [0, 1, 0] : [1, 0, 0];
+  const u = nrm(cross(a, t)), w = cross(t, u);
+  const n = Math.max(2, Math.ceil(L / step));
+  for (let i = 0; i <= n; i++) {
+    const s = i / n;
+    const cc = typeof col === 'function' ? col(s) : col;
+    for (let j = 0; j < k; j++) {
+      const an = (j / k) * TAU + i * 0.6;
+      const nv = [u[0] * Math.cos(an) + w[0] * Math.sin(an), u[1] * Math.cos(an) + w[1] * Math.sin(an), u[2] * Math.cos(an) + w[2] * Math.sin(an)];
+      C.add(F, p0[0] + d[0] * s + nv[0] * r, p0[1] + d[1] * s + nv[1] * r, p0[2] + d[2] * s + nv[2] * r, nv[0], nv[1], nv[2], cc, st);
+    }
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ *  Les fleurs (coordonnées locales, tige en bas, ouverture vers +y)
+ * ------------------------------------------------------------------ */
+const GREEN = [70, 150, 60];
+
+// Rose : 15 pétales en spirale (angle d'or), du bouton serré aux pétales ouverts.
+function rose(C, F, R, h) {
+  const base = h.color, N = 15, a0 = R() * TAU;
+  for (let i = 0; i < N; i++) {
+    const t = i / (N - 1);
+    const Ri = 0.03 + 0.13 * t, Hi = 0.2 * (1 - 0.08 * t), hw = 1.6 - 0.7 * t;
+    const curl = 0.05 * t * t, ac = a0 + i * GOLDEN, dark = 0.65 + 0.35 * t;
+    surf(C, F, (u, v) => {
+      const um = u * (1 - 0.3 * v * v), an = ac + v * hw;
+      const r = Ri * (0.3 + 0.7 * Math.sin((um * Math.PI) / 2)) + curl * um * um * um;
+      const y = 0.015 + Hi * um * (1 - 0.25 * t * um);
+      return [r * Math.cos(an), y, r * Math.sin(an)];
+    }, 26, 28, (u) => mul(base, (0.65 + 0.35 * u) * dark * (u > 0.93 ? 1.15 : 1)), 0);
+  }
+  sphere(C, F, 0, -0.005, 0, 0.05, 70, GREEN, 2, 0.8);
+  // sépales
+  for (let k = 0; k < 5; k++) {
+    const a = a0 + (k * TAU) / 5, ca = Math.cos(a), sa = Math.sin(a);
+    surf(C, F, (s, v) => {
+      const w = 0.025 * Math.sin(Math.PI * s) * v;
+      const r = 0.03 + 0.11 * s, y = -0.01 - 0.06 * s * s;
+      return [ca * r - sa * w, y, sa * r + ca * w];
+    }, 12, 5, GREEN, 2);
+  }
+}
+
+// Tulipe : 6 pétales en coupe, 3 extérieurs + 3 intérieurs.
+function tulip(C, F, R, h) {
+  const a0 = R() * TAU, base = h.color, edge = h.edge || h.color;
+  for (let j = 0; j < 6; j++) {
+    const outer = j % 2 === 0, a = a0 + (j * TAU) / 6, Rm = outer ? 1 : 0.9, H = 0.27 * (outer ? 1 : 0.96);
+    surf(C, F, (u, v) => {
+      const um = u * (1 - 0.22 * v * v), an = a + v * 0.72;
+      const r = 0.115 * Rm * Math.sin(Math.PI * (0.12 + 0.66 * um)) + 0.022 * um ** 4;
+      return [r * Math.cos(an), 0.01 + H * um, r * Math.sin(an)];
+    }, 26, 20, (u, v) => {
+      let c = mix(base, edge, smooth(0.72, 1, u) * 0.85 + smooth(0.75, 1, Math.abs(v)) * 0.25);
+      c = mix(c, [210, 190, 60], (1 - smooth(0, 0.18, u)) * 0.6);
+      return mul(c, outer ? 1 : 0.85);
+    }, 0);
+  }
+  sphere(C, F, 0, 0, 0, 0.04, 40, GREEN, 2);
+}
+
+// Lys : 6 tépales longs et recourbés, étamines orange.
+function lily(C, F, R, h) {
+  const a0 = R() * TAU, e0 = 1.25, k = 2.1;
+  for (let j = 0; j < 6; j++) {
+    const inner = j % 2 === 1, a = a0 + (j * TAU) / 6;
+    const L = 0.34 * (inner ? 0.94 : 1), W = 0.085 * (inner ? 1.12 : 0.9);
+    const ca = Math.cos(a), sa = Math.sin(a), R2 = rng((h.seed || 7) * 31 + j);
+    const spots = [];
+    for (let q = 0; q < 14; q++) spots.push([0.15 + 0.45 * R2(), (R2() * 2 - 1) * 0.55]);
+    surf(C, F, (s, v) => {
+      const e = e0 - k * s;
+      const rad = 0.012 + (L * (Math.sin(e0) - Math.sin(e))) / k;
+      const y = 0.02 + (L * (Math.cos(e) - Math.cos(e0))) / k;
+      const w = W * Math.pow(Math.sin(Math.PI * Math.min(1, 0.06 + s)), 0.75) * (1 - 0.25 * s) + 0.003;
+      const cup = 0.4 * w * v * v;
+      const nR = -Math.sin(e), nY = Math.cos(e); // normale de la ligne médiane
+      const R3 = rad + nR * cup, Y = y + nY * cup, Lt = v * w;
+      return [ca * R3 - sa * Lt, Y, sa * R3 + ca * Lt];
+    }, 40, 14, (s, v) => {
+      let c = mix(h.color, h.edge, smooth(0.2, 0.95, Math.abs(v)));
+      c = mix(c, [200, 230, 120], (1 - smooth(0.02, 0.22, s)) * 0.8);
+      if (h.spots) for (const sp of spots) if (Math.abs(sp[0] - s) < 0.03 && Math.abs(sp[1] - v) < 0.12) c = h.spots;
+      return c;
+    }, 0);
+  }
+  // étamines + pistil
+  for (let j = 0; j < 6; j++) {
+    const a = a0 + (j * TAU) / 6 + 0.5, tip = [Math.cos(a) * 0.12, 0.2, Math.sin(a) * 0.12];
+    tube(C, F, [0, 0.03, 0], tip, 0.004, [200, 230, 160], 1, 3, 0.01);
+    sphere(C, F, tip[0], tip[1] + 0.008, tip[2], 0.016, 22, [200, 85, 25], 5, 0.7);
+  }
+  tube(C, F, [0, 0.03, 0], [0, 0.24, 0], 0.005, [190, 225, 140], 1, 3, 0.01);
+  sphere(C, F, 0, 0.245, 0, 0.014, 18, [150, 200, 90], 5);
+}
+
+// Bouton de lys fermé.
+function lilyBud(C, F, R, h) {
+  surf(C, F, (u, v) => {
+    const r = 0.05 * Math.pow(Math.sin(Math.PI * Math.min(1, u * 0.95 + 0.05)), 0.7) * (1 - 0.35 * u);
+    const an = Math.PI * v;
+    return [r * Math.cos(an), 0.3 * u, r * Math.sin(an)];
+  }, 30, 26, (u) => mix([140, 195, 100], h.color, smooth(0.35, 1, u)), 0);
+}
+
+// Lilas : grappe conique de petites fleurs à 4 pétales.
+function lilac(C, F, R, h) {
+  const H = 0.42, Rb = 0.15;
+  const rad = (t) => Rb * Math.pow(1 - t, 0.8) * (0.62 + 0.38 * Math.sin(Math.PI * Math.min(1, t * 2.2)));
+  surf(C, F, (u, v) => { const an = Math.PI * v, r = rad(u) * 0.72; return [r * Math.cos(an), 0.02 + H * u, r * Math.sin(an)]; },
+    30, 40, mul(h.color, 0.45), 6);
+  const M = 260, fr = 0.03;
+  for (let m = 0; m < M; m++) {
+    let t;
+    do { t = R(); } while (R() > rad(t) / Rb + 0.05);
+    const th = R() * TAU, r = rad(t) * (0.9 + 0.2 * R());
+    const c = [r * Math.cos(th), 0.02 + t * H, r * Math.sin(th)];
+    const n = nrm([Math.cos(th), 0.45, Math.sin(th)]);
+    const t1 = nrm(cross([0, 1, 0], n)), t2 = cross(n, t1);
+    const base = mul(h.palette[(R() * h.palette.length) | 0], 0.85 + 0.3 * R());
+    const rot = R() * TAU;
+    for (let q = 1; q <= 4; q++) {
+      for (let p = 0; p < 16; p++) {
+        const ph = (p / 16) * TAU;
+        const rr = (q / 4) * fr * (0.45 + 0.55 * Math.abs(Math.cos(2 * (ph + rot))));
+        const cu = 0.25 * rr;
+        const x = c[0] + t1[0] * rr * Math.cos(ph) + t2[0] * rr * Math.sin(ph) + n[0] * cu;
+        const y = c[1] + t1[1] * rr * Math.cos(ph) + t2[1] * rr * Math.sin(ph) + n[1] * cu;
+        const z = c[2] + t1[2] * rr * Math.cos(ph) + t2[2] * rr * Math.sin(ph) + n[2] * cu;
+        C.add(F, x, y, z, n[0], n[1], n[2], q === 1 ? mix(base, [255, 250, 230], 0.5) : base, 6);
+      }
+    }
+  }
+}
+
+// Tournesol : coeur en spirale + deux couronnes de pétales jaunes.
+function sunflower(C, F, R, h) {
+  const Rd = 0.11, a0 = R() * TAU;
+  // coeur
+  for (let i = 0; i < 24; i++) {
+    const rr = i / 23, n = Math.max(6, Math.round(110 * rr));
+    for (let j = 0; j < n; j++) {
+      const ph = (j / n) * TAU;
+      const x = Rd * rr * Math.cos(ph), z = Rd * rr * Math.sin(ph), y = 0.012 + 0.028 * (1 - rr * rr);
+      const s = Math.sin(rr * 55 - ph * 13) * Math.sin(rr * 55 + ph * 21);
+      let c = mix([60, 30, 8], [150, 85, 25], 0.5 + 0.5 * s);
+      c = mix(c, [120, 115, 30], 1 - smooth(0.1, 0.3, rr));
+      C.add(F, x, y, z, x * 3, 1, z * 3, c, 5);
+    }
+  }
+  // dos vert
+  for (let i = 0; i < 16; i++) {
+    const rr = (i / 15) * 1.05, n = Math.max(6, Math.round(80 * rr));
+    for (let j = 0; j < n; j++) {
+      const ph = (j / n) * TAU, x = Rd * rr * Math.cos(ph), z = Rd * rr * Math.sin(ph);
+      C.add(F, x, -0.012 - 0.035 * (1 - rr * rr * 0.8), z, x * 3, -1, z * 3, [75, 125, 50], 2);
+    }
+  }
+  // pétales
+  for (let ring = 0; ring < 2; ring++) {
+    for (let p = 0; p < 18; p++) {
+      const a = a0 + ((p + ring * 0.5) * TAU) / 18, ca = Math.cos(a), sa = Math.sin(a);
+      const Lp = 0.13 * (ring ? 0.9 : 1) * (0.9 + 0.2 * R()), k = 0.9 + 0.2 * R();
+      surf(C, F, (s, v) => {
+        const w = 0.028 * Math.pow(Math.sin(Math.PI * (0.1 + 0.9 * s)), 0.6) * (1 - 0.3 * s);
+        const r = Rd * 0.92 + s * Lp, y = 0.008 + ring * 0.006 + 0.03 * s - (ring ? 0.03 : 0.06) * s * s + 0.15 * w * v * v;
+        return [ca * r - sa * v * w, y, sa * r + ca * v * w];
+      }, 18, 8, (s) => mul(mix([235, 135, 10], [255, 212, 35], smooth(0, 0.6, s)), k), 0);
+    }
+  }
+}
+
+// Gypsophile : petits nuages de fleurs blanches.
+function gyps(C, F, R) {
+  for (let m = 0; m < 22; m++) {
+    const th = R() * TAU, ph = R() * 1.2, r = 0.05 + 0.08 * R();
+    const c = [r * Math.sin(ph) * Math.cos(th), 0.02 + r * Math.cos(ph) + 0.04 * R(), r * Math.sin(ph) * Math.sin(th)];
+    if (m % 2 === 0) tube(C, F, [0, 0, 0], c, 0.002, [150, 190, 120], 1, 2, 0.012);
+    sphere(C, F, c[0], c[1], c[2], 0.014, 16, [248, 246, 255], 6);
+  }
+}
+
+const FLOWERS = { rose, tulip, lily, lilyBud, lilac, sunflower, gyps };
+
+/* ------------------------------------------------------------------ *
+ *  Feuilles, papier d'emballage, ruban
+ * ------------------------------------------------------------------ */
+function leaf(C, base, dir, L, W, col) {
+  const d = nrm(dir), lat = nrm(cross([0, 1, 0], d)), n = cross(d, lat);
+  surf(C, IDENT, (s, v) => {
+    const w = W * Math.pow(Math.sin(Math.PI * s), 0.8) * (1 - 0.2 * s);
+    const fold = 0.3 * w * Math.abs(v), dr = 0.35 * L * s * s;
+    return [
+      base[0] + d[0] * s * L + lat[0] * v * w + n[0] * fold,
+      base[1] + d[1] * s * L - dr + lat[1] * v * w + n[1] * fold,
+      base[2] + d[2] * s * L + lat[2] * v * w + n[2] * fold,
+    ];
+  }, 40, 13, (s, v) => mul(Math.abs(v) < 0.12 ? mix(col, [200, 240, 150], 0.45) : col, 0.75 + 0.35 * s), 2);
+}
+
+const PAPER_Y0 = -0.52, PAPER_SPAN = 0.55;
+const paperR = (y) => 0.07 + 0.58 * Math.pow(clamp((y - PAPER_Y0) / PAPER_SPAN, 0, 1.3), 1.05);
+
+function paper(C, R, col) {
+  const ph = R() * TAU;
+  surf(C, IDENT, (h, v) => {
+    const th = Math.PI * v + Math.PI;
+    const top = -0.03 + 0.1 * (0.5 + 0.5 * Math.cos(5 * th + ph));
+    const y = PAPER_Y0 + h * (top - PAPER_Y0);
+    const r = paperR(y) * (1 + 0.045 * Math.abs(Math.sin(5 * th + ph)));
+    return [r * Math.cos(th), y, r * Math.sin(th)];
+  }, 56, 240, (h) => mul(col, (Math.sin(h * 75) > 0.2 ? 0.8 : 0.6) * (h > 0.96 ? 1.25 : 1)), 3);
+}
+
+function ribbon(C, col) {
+  surf(C, IDENT, (u, v) => {
+    const y = -0.46 + 0.08 * u, r = paperR(y) * 1.07 + 0.008, th = Math.PI * v;
+    return [r * Math.cos(th), y, r * Math.sin(th)];
+  }, 10, 120, col, 4);
+  const z0 = paperR(-0.42) * 1.07 + 0.02;
+  for (const s of [-1, 1]) {
+    // boucles du noeud
+    surf(C, IDENT, (u, v) => {
+      const t = u * TAU;
+      return [s * 0.1 * (1 - Math.cos(t)), -0.405 + 0.06 * Math.sin(t) * s, z0 + 0.025 * (1 - Math.cos(t)) + v * 0.028];
+    }, 60, 7, (u) => mul(col, 0.8 + 0.25 * Math.cos(u * TAU)), 4);
+    // pans qui pendent
+    surf(C, IDENT, (u, v) => [s * (0.02 + 0.13 * u) + v * 0.024, -0.425 - 0.3 * u, z0 + 0.02 * Math.sin(u * 6)],
+      40, 6, (u) => mul(col, 1 - 0.3 * u), 4);
+  }
+  sphere(C, IDENT, 0, -0.405, z0 + 0.01, 0.03, 50, col, 4);
+}
+
+/* ------------------------------------------------------------------ *
+ *  Assemblage d'un bouquet
+ * ------------------------------------------------------------------ */
+function build(spec) {
+  const C = new Cloud(), R = rng(spec.seed);
+  const B = [0, -0.42, 0]; // point de liage (ruban)
+  const maxA = spec.spread || 0.85;
+  const az0 = R() * TAU;
+  const stemCol = (s) => mix([45, 120, 45], [95, 175, 75], s);
+
+  const place = (h, frac, az, L, stemR) => {
+    const al = maxA * Math.sqrt(frac);
+    const dir = [Math.sin(al) * Math.cos(az), Math.cos(al), Math.sin(al) * Math.sin(az)];
+    const head = [B[0] + dir[0] * L, B[1] + dir[1] * L, B[2] + dir[2] * L];
+    tube(C, IDENT, B, head, stemR, stemCol, 1);
+    tube(C, IDENT, [-dir[0] * 0.22, -1.38, -dir[2] * 0.22], B, stemR, (s) => stemCol(s * 0.6), 1);
+    const horiz = [Math.cos(az), 0, Math.sin(az)];
+    let face = dir;
+    if (h.type === 'sunflower') face = nrm([dir[0] * 0.6 + horiz[0] * 0.75, dir[1] * 0.6 + 0.1, dir[2] * 0.6 + horiz[2] * 0.75]);
+    if (h.type === 'lily') face = nrm([dir[0] + horiz[0] * 0.3, dir[1], dir[2] + horiz[2] * 0.3]);
+    FLOWERS[h.type](C, frame(head, face, (h.scale || 1) * (spec.headScale || 1.5), R() * TAU), R, h);
+  };
+
+  const n = spec.heads.length;
+  spec.heads.forEach((h, i) => {
+    const frac = (i + 0.5) / n;
+    const az = az0 + i * GOLDEN + (R() - 0.5) * 0.3;
+    const L = (spec.stem || 1.25) - 0.25 * Math.sqrt(frac) + (R() - 0.5) * 0.06;
+    place(h, frac, az, L, 0.013);
+  });
+
+  for (let i = 0; i < (spec.fillers || 0); i++) {
+    const frac = 0.15 + 0.95 * R(), az = R() * TAU, L = 1.05 + 0.2 * R();
+    place({ type: 'gyps', scale: 0.8 }, Math.min(1.1, frac), az, L, 0.006);
+  }
+
+  const nl = spec.leaves || 6;
+  for (let k = 0; k < nl; k++) {
+    const az = az0 + ((k + 0.5) / nl) * TAU + (R() - 0.5) * 0.4;
+    const ca = Math.cos(az), sa = Math.sin(az);
+    const base = [ca * 0.3, -0.02 + 0.1 * R(), sa * 0.3];
+    const lift = spec.leafLift || 0.55;
+    leaf(C, base, [ca * 0.9, lift + 0.2 * R(), sa * 0.9], (spec.leafLen || 0.42) * (0.85 + 0.3 * R()),
+      spec.leafW || 0.1, mix([60, 140, 50], [110, 185, 80], R()));
+  }
+
+  paper(C, R, spec.paper);
+  ribbon(C, spec.ribbon);
+  return C.pack(R);
+}
+
+/* ------------------------------------------------------------------ *
+ *  Les variantes
+ * ------------------------------------------------------------------ */
+const RED = [225, 22, 48], CRIMSON = [175, 8, 38], PINK = [255, 110, 160], BLUSH = [255, 175, 195];
+const STARGAZER = { color: [235, 45, 120], edge: [255, 228, 242], spots: [140, 10, 60] };
+const WHITE_LILY = { color: [255, 240, 185], edge: [255, 255, 255] };
+const SOFT_LILY = { color: [255, 150, 185], edge: [255, 240, 246], spots: [210, 60, 120] };
+const LILAS = [[185, 130, 225], [160, 100, 210], [210, 170, 240], [140, 80, 190]];
+const LILAS_WHITE = [[245, 238, 252], [230, 220, 245], [255, 250, 255]];
+const T = (color, edge) => ({ type: 'tulip', color, edge, scale: 1.05 });
+
+const VARIANTS = [
+  {
+    key: 'roses', name: 'Roses', meaning: "l'amour passionné", seed: 11,
+    paper: [245, 236, 230], ribbon: [235, 40, 85], fillers: 9, leaves: 7,
+    heads: [RED, CRIMSON, BLUSH, RED, CRIMSON, PINK, RED].map((color) => ({ type: 'rose', color })),
+  },
+  {
+    key: 'lys', name: 'Lys', meaning: 'la pureté et la douceur', seed: 23,
+    paper: [252, 226, 236], ribbon: [240, 110, 165], leaves: 7, leafLen: 0.5, leafW: 0.08,
+    heads: [
+      { type: 'lily', ...STARGAZER, seed: 1 }, { type: 'lily', ...WHITE_LILY, seed: 2 },
+      { type: 'lily', ...SOFT_LILY, seed: 3 }, { type: 'lilyBud', color: [255, 200, 220] },
+      { type: 'lily', ...STARGAZER, seed: 4 }, { type: 'lily', ...WHITE_LILY, seed: 5 },
+      { type: 'lilyBud', color: [250, 250, 235] },
+    ].map((h) => ({ scale: 0.95, ...h })),
+  },
+  {
+    key: 'lilas', name: 'Lilas', meaning: 'les premiers émois', seed: 37,
+    paper: [218, 208, 238], ribbon: [150, 90, 215], leaves: 8, leafW: 0.13, leafLen: 0.36,
+    heads: [LILAS, LILAS, LILAS_WHITE, LILAS, [[150, 90, 205], [130, 70, 190]], LILAS, LILAS_WHITE]
+      .map((palette) => ({ type: 'lilac', palette, color: palette[0], scale: 0.8 })),
+  },
+  {
+    key: 'tulipes', name: 'Tulipes', meaning: "l'amour parfait", seed: 41,
+    paper: [205, 165, 115], ribbon: [250, 244, 236], leaves: 9, leafLen: 0.5, leafW: 0.09, leafLift: 0.9, stem: 1.35,
+    heads: [
+      T([235, 30, 50]), T([255, 205, 40], [255, 120, 60]), T([255, 105, 165], [255, 215, 230]),
+      T([255, 130, 40]), T([150, 60, 180]), T([250, 245, 240], [255, 120, 170]),
+      T([235, 30, 50]), T([255, 205, 40]), T([255, 105, 165]),
+    ],
+  },
+  {
+    key: 'tournesols', name: 'Tournesols', meaning: "l'admiration et la joie", seed: 53,
+    paper: [192, 150, 100], ribbon: [120, 185, 90], leaves: 8, leafW: 0.13, leafLen: 0.45,
+    heads: [1.2, 1.05, 0.95, 1.1, 0.9].map((scale) => ({ type: 'sunflower', scale })),
+  },
+  {
+    key: 'mixte', name: 'Bouquet mixte', meaning: 'un peu de tout, comme toi', seed: 67,
+    paper: [236, 236, 246], ribbon: [255, 120, 175], fillers: 6, leaves: 8,
+    heads: [
+      { type: 'rose', color: PINK }, { type: 'lily', ...STARGAZER, seed: 9, scale: 0.9 },
+      { type: 'sunflower', scale: 1 }, { type: 'lilac', palette: LILAS, color: LILAS[0], scale: 0.8 },
+      T([255, 205, 40]), { type: 'rose', color: RED }, T([255, 105, 165]),
+      { type: 'lilac', palette: LILAS_WHITE, color: LILAS_WHITE[0], scale: 0.8 },
+    ],
+  },
+];
+
+/* ------------------------------------------------------------------ *
+ *  Rendu ASCII
+ *  Une "vue" = un canvas + sa grille de caractères. La grande vue dessine
+ *  des caractères ; les miniatures dessinent de petits carrés.
+ * ------------------------------------------------------------------ */
+const D = 6;                           // distance de la caméra
+const LIGHT = nrm([-0.45, 0.7, 0.65]); // lumière venant d'en haut à gauche
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+class View {
+  constructor(canvas, { text = true, stars = false, fill = 0.82 } = {}) {
+    this.cv = canvas;
+    this.ctx = canvas.getContext('2d');
+    this.text = text;
+    this.withStars = stars;
+    this.fill = fill;
+    this.resize();
+  }
+
+  resize() {
+    const dpr = (this.dpr = Math.min(window.devicePixelRatio || 1, 2));
+    const W = (this.W = this.cv.clientWidth), H = (this.H = this.cv.clientHeight);
+    this.cv.width = Math.max(1, Math.round(W * dpr));
+    this.cv.height = Math.max(1, Math.round(H * dpr));
+    if (this.text) {
+      this.fs = clamp(Math.round(H / 95), 6, 11);
+      this.ctx.font = `bold ${this.fs}px ${FONT}`;
+      this.cw = this.ctx.measureText('M').width || this.fs * 0.6;
+      this.ch = this.fs;
+    } else {
+      this.cw = this.ch = 1.6;
+    }
+    this.cols = Math.max(1, Math.ceil(W / this.cw));
+    this.rows = Math.max(1, Math.ceil(H / this.ch));
+    const n = this.cols * this.rows;
+    this.zb = new Float32Array(n); this.ib = new Int32Array(n); this.touched = new Int32Array(n);
+    this.stars = [];
+    if (this.withStars) {
+      const R = rng(99);
+      this.stars = Array.from({ length: Math.round(n / 140) }, () => ({
+        c: (R() * this.cols) | 0, r: (R() * this.rows) | 0, ch: '..·+*'[(R() * 5) | 0],
+        sp: 0.6 + 1.8 * R(), ph: R() * TAU, pink: R() < 0.25,
+      }));
+    }
+  }
+
+  draw(cloud, t, rot, G = 1.1, offX = 0) {
+    const { ctx, W, H, cw, ch, cols, rows, zb, ib, touched } = this;
+    ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+    if (this.text) { ctx.font = `bold ${this.fs}px ${FONT}`; ctx.textBaseline = 'top'; }
+
+    for (const s of this.stars) {
+      const a = Math.pow(0.5 + 0.5 * Math.sin(t * s.sp + s.ph), 3);
+      if (a < 0.05) continue;
+      ctx.fillStyle = s.pink ? `rgba(255,140,190,${a * 0.8})` : `rgba(235,225,255,${a * 0.7})`;
+      ctx.fillText(s.ch, s.c * cw, s.r * ch);
+    }
+    if (!cloud) return;
+
+    const P = cloud.data, N = cloud.n, S = 11;
+    const span = cloud.ymax - cloud.ymin;
+    const sc = Math.min((H * this.fill) / (span * 1.1), W / (2 * cloud.rmax * 1.08));
+    const cx = W / 2 + offX, cy = H / 2 + ((cloud.ymax + cloud.ymin) / 2) * sc;
+    const tilt = 0.24 + 0.06 * Math.sin(t * 0.5);
+    const ct = Math.cos(rot), st = Math.sin(rot), cp = Math.cos(tilt), sp = Math.sin(tilt);
+    let tc = 0;
+
+    for (let i = 0, o = 0; i < N; i++, o += S) {
+      if (P[o + 10] > G) continue;
+      const x = P[o], y = P[o + 1], z = P[o + 2];
+      const x1 = x * ct + z * st, z1 = -x * st + z * ct;
+      const y2 = y * cp - z1 * sp, z2 = y * sp + z1 * cp;
+      const inv = 1 / (D - z2), pf = D * inv;
+      const c = ((cx + x1 * sc * pf) / cw) | 0, r = ((cy - y2 * sc * pf) / ch) | 0;
+      if (c < 0 || c >= cols || r < 0 || r >= rows) continue;
+      const k = r * cols + c;
+      if (inv > zb[k]) {
+        if (zb[k] === 0) touched[tc++] = k;
+        zb[k] = inv; ib[k] = o;
+      }
+    }
+
+    for (let q = 0; q < tc; q++) {
+      const k = touched[q], o = ib[k];
+      const nx = P[o + 3], ny = P[o + 4], nz = P[o + 5];
+      const nx1 = nx * ct + nz * st, nz1 = -nx * st + nz * ct;
+      let ny2 = ny * cp - nz1 * sp, nz2 = ny * sp + nz1 * cp, nx2 = nx1;
+      if (nz2 < 0) { nx2 = -nx2; ny2 = -ny2; nz2 = -nz2; } // surfaces à double face
+      const z2 = D - 1 / zb[k];
+      let lum = 0.16 + 0.84 * Math.max(0, nx2 * LIGHT[0] + ny2 * LIGHT[1] + nz2 * LIGHT[2]);
+      lum *= 0.72 + 0.28 * clamp((z2 + 1) / 2, 0, 1);
+      const kk = 0.35 + 0.85 * lum;
+      let rr = P[o + 6] * kk, gg = P[o + 7] * kk, bb = P[o + 8] * kk;
+      if (G < 1.05 && P[o + 10] > G - 0.05) { rr = rr * 0.4 + 155; gg = gg * 0.4 + 150; bb = bb * 0.4 + 155; } // front de pousse
+      ctx.fillStyle = `rgb(${rr > 255 ? 255 : rr | 0},${gg > 255 ? 255 : gg | 0},${bb > 255 ? 255 : bb | 0})`;
+      const px = (k % cols) * cw, py = ((k / cols) | 0) * ch;
+      if (this.text) {
+        const ramp = RAMPS[P[o + 9]];
+        ctx.fillText(ramp[Math.min(ramp.length - 1, (lum * ramp.length) | 0)], px, py);
+      } else {
+        ctx.fillRect(px, py, cw, ch);
+      }
+      zb[k] = 0;
+    }
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ *  Navigation : flèches, miniatures, swipe, clavier
+ * ------------------------------------------------------------------ */
+const cache = new Map();
+const get = (i) => { if (!cache.has(i)) cache.set(i, build(VARIANTS[i])); return cache.get(i); };
+// Version allégée (1 point sur 4) pour les miniatures : elles peuvent tourner en continu.
+const mini = new Map();
+const getMini = (i) => {
+  if (!mini.has(i)) {
+    const c = get(i), S = 11, n = Math.ceil(c.n / 4), data = new Float32Array(n * S);
+    for (let j = 0; j < n; j++) data.set(c.data.subarray(j * 4 * S, j * 4 * S + S), j * S);
+    mini.set(i, { ...c, data, n });
+  }
+  return mini.get(i);
+};
+
+const stage = document.getElementById('stage');
+const gv = document.getElementById('glow'), gctx = gv.getContext('2d');
+const main = new View(document.getElementById('main'), { stars: true, fill: 0.86 });
+
+const nameEl = document.getElementById('name'), meaningEl = document.getElementById('meaning');
+const thumbsEl = document.getElementById('thumbs'), hintEl = document.getElementById('hint');
+
+
+let idx = Math.max(0, VARIANTS.findIndex((v) => v.key === location.hash.slice(1)));
+let target = idx, phase = 'grow', growth = 0, slide = 0;
+
+// Une miniature par bouquet : les choix restent petits, la sélection s'affiche en grand.
+const thumbs = VARIANTS.map((v, i) => {
+  const b = document.createElement('button');
+  b.className = 'thumb';
+  b.setAttribute('role', 'tab');
+  b.setAttribute('aria-label', v.name);
+  b.innerHTML = '<canvas aria-hidden="true"></canvas><span></span>';
+  b.querySelector('span').textContent = v.name;
+  b.addEventListener('click', () => go(i - (phase === 'out' ? target : idx)));
+  thumbsEl.appendChild(b);
+  return { el: b, view: new View(b.querySelector('canvas'), { text: false, fill: 0.92 }) };
+});
+
+function restart(el, cls) {
+  el.classList.remove(cls);
+  void el.offsetWidth; // relance l'animation CSS
+  el.classList.add(cls);
+}
+
+function select(i, animate = false) {
+  thumbs.forEach((t, j) => t.el.setAttribute('aria-selected', String(j === i)));
+  const el = thumbs[i].el;
+  if (animate) restart(el, 'pop');
+  thumbsEl.scrollTo({ left: el.offsetLeft - (thumbsEl.clientWidth - el.offsetWidth) / 2, behavior: 'smooth' });
+}
+
+function updateLabel() {
+  const v = VARIANTS[idx];
+  nameEl.textContent = v.name;
+  meaningEl.textContent = v.meaning;
+  restart(nameEl.parentElement, 'rise');
+  const [r, g, b] = v.ribbon;
+  document.documentElement.style.setProperty('--accent', `rgb(${Math.max(r, 120)},${Math.max(g, 90)},${Math.max(b, 120)})`);
+  try { history.replaceState(null, '', `${location.pathname}${location.search}#${v.key}`); } catch (e) { /* cadre restreint */ }
+}
+
+function go(delta) {
+  if (!delta) return;
+  target = (((phase === 'out' ? target : idx) + delta) % VARIANTS.length + VARIANTS.length) % VARIANTS.length;
+  slide = Math.sign(delta);
+  phase = 'out';
+  select(target, true);
+  hintEl.classList.add('hidden');
+}
+
+document.getElementById('prev').addEventListener('click', () => go(-1));
+document.getElementById('next').addEventListener('click', () => go(1));
+addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowRight') go(1);
+  if (e.key === 'ArrowLeft') go(-1);
+});
+
+let sx = 0, sy = 0, down = false;
+stage.addEventListener('pointerdown', (e) => { down = true; sx = e.clientX; sy = e.clientY; });
+addEventListener('pointerup', (e) => {
+  if (!down) return;
+  down = false;
+  const dx = e.clientX - sx, dy = e.clientY - sy;
+  if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.2) go(dx < 0 ? 1 : -1);
+});
+addEventListener('pointercancel', () => { down = false; });
+setTimeout(() => hintEl.classList.add('hidden'), 6000);
+
+/* ------------------------------------------------------------------ *
+ *  Boucle d'animation
+ * ------------------------------------------------------------------ */
+function resize() {
+  main.resize();
+  gv.width = main.cv.width; gv.height = main.cv.height;
+  thumbs.forEach((t) => t.view.resize());
+  select(target);
+}
+resize();
+addEventListener('resize', resize);
+updateLabel();
+let cloud = get(idx);
+
+// Prépare les autres bouquets en tâche de fond (miniatures + swipe instantané).
+const idle = window.requestIdleCallback || ((f) => setTimeout(f, 60));
+let pre = 0;
+(function warm() {
+  if (pre >= VARIANTS.length) return;
+  get(pre++);
+  idle(warm);
+})();
+
+let last = performance.now(), rot = 0.6, frameNo = 0, spinBoost = 0, glowPulse = 0;
+const ease = (x) => 1 - Math.pow(1 - x, 3);
+function loop(now) {
+  const dt = Math.min(0.05, (now - last) / 1000);
+  last = now;
+  rot += dt * ((reduceMotion ? 0.12 : 0.6) + spinBoost);
+  spinBoost *= Math.exp(-dt * 2.2);
+  glowPulse *= Math.exp(-dt * 2.5);
+  gv.style.opacity = (0.75 + 0.25 * glowPulse).toFixed(3);
+
+  if (phase === 'out') {
+    growth -= dt * 3.4;
+    if (growth <= 0) {
+      idx = target; cloud = get(idx); growth = 0; phase = 'grow';
+      updateLabel();
+      // Arrivée du nouveau bouquet : un tour rapide qui ralentit + un halo qui pulse.
+      if (!reduceMotion) { spinBoost = 5; glowPulse = 1; }
+    }
+  } else {
+    growth = Math.min(1.1, growth + dt * (reduceMotion ? 2 : 0.7));
+  }
+  const g = clamp(growth, 0, 1);
+  const offX = phase === 'out' ? -slide * (1 - g) * main.W * 0.2 : slide * (1 - ease(g)) * main.W * 0.2;
+
+  main.draw(cloud, now / 1000, rot, growth, offX);
+  gctx.setTransform(1, 0, 0, 1, 0, 0);
+  gctx.clearRect(0, 0, gv.width, gv.height);
+  gctx.drawImage(main.cv, 0, 0);
+
+  // Miniatures : deux redessinées par frame, chacune pivote sur elle-même.
+  for (let q = 0; q < 2; q++) {
+    const ti = frameNo++ % thumbs.length;
+    if (cache.has(ti)) thumbs[ti].view.draw(getMini(ti), now / 1000, rot + ti * 1.1, 1.1);
+  }
+
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
